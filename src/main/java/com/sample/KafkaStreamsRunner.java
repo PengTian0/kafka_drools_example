@@ -16,11 +16,6 @@ import java.util.Properties;
 public class KafkaStreamsRunner {
 
     private KafkaStreamsRunner() {
-        //To prevent instantiation
-    }
-
-    private static boolean filterNonNull(byte[] key, String value){
-        return value != null && value != "";
     }
 
     /**
@@ -35,19 +30,15 @@ public class KafkaStreamsRunner {
         KStreamBuilder builder = new KStreamBuilder();
         String inputTopic = properties.getString("kpiFilterInputTopic");
         String outputTopic = properties.getString("kpiFilterOutputTopic");
+
         KStream<byte[], String> inputData = builder.stream(inputTopic);
+
         KStream<byte[], String> outputData = inputData.mapValues(rulesApplier::applyKpiFilterRule);
+
         outputData.filter((key, value) -> value != null)
                   .mapValues(rulesApplier::applyKpiComputeRule)
                   .to(outputTopic);
-        /*
-        String computeInputTopic = properties.getString("kpiComputeInputTopic");
-        String computeOutputTopic = properties.getString("kpiComputeOutputTopic");
-        KStream<byte[], String> computeInputData = builder.stream(computeInputTopic);
-        KStream<byte[], String> computeOutputData = computeInputData.mapValues(rulesApplier::applyKpiComputeRule);
 
-        computeOutputData.to(computeOutputTopic);
-        */
         Properties streamsConfig = createStreamConfig(properties);
         KafkaStreams streams = new KafkaStreams(builder, streamsConfig);
         System.out.println("start kafka streams");

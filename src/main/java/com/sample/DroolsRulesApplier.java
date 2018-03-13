@@ -15,14 +15,18 @@ import org.kie.api.KieBase;
 
 public class DroolsRulesApplier {
 	
-	private static KieSession KIE_SESSION;
-	private static KieContainer CONTAINER;
+    private static KieSession KIE_SESSION;
+    private static KieContainer CONTAINER;
 
     public DroolsRulesApplier() throws Exception {
-        //System.out.println(sessionName);
         KIE_SESSION = DroolsSessionFactory.createDroolsSession();
         CONTAINER =  DroolsSessionFactory.createKieContainer();
-        //KIE_SESSION = DroolsUtil.getStatefulKnowledgeSession(sessionName);
+    }
+
+    public void runRules(Object kpi, String group){
+        KIE_SESSION.getAgenda().getAgendaGroup(group).setFocus();
+        KIE_SESSION.insert(kpi);
+        KIE_SESSION.fireAllRules();
     }
 
     /**
@@ -37,9 +41,7 @@ public class DroolsRulesApplier {
         try{
             FactType factType = factType(CONTAINER.getKieBase());
             Object kpi = makeApplicant(factType, value);
-            KIE_SESSION.getAgenda().getAgendaGroup("kpi-filter").setFocus();
-            KIE_SESSION.insert(kpi);
-            KIE_SESSION.fireAllRules();
+            runRules(kpi, "kpi-filter");
             boolean skipped = (Boolean)factType.get(kpi, "skipped");
             
             System.out.println("skipped："+ skipped);
@@ -48,20 +50,19 @@ public class DroolsRulesApplier {
             }else{
                 return factType.get(kpi, "group") + " " + factType.get(kpi, "name") + " " + factType.get(kpi, "value"); 
             }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         return value;
     }
 
     public String applyKpiComputeRule(String value) {
-        System.out.println("start to apply compute rule with fact: " + value);
         try{
+            System.out.println("start to apply compute rule with fact: " + value);
             FactType factType = factType(CONTAINER.getKieBase());
             Object kpi = makeApplicant(factType, value);
-            KIE_SESSION.getAgenda().getAgendaGroup("kpi-compute").setFocus(); 
-            KIE_SESSION.insert(kpi);
-            KIE_SESSION.fireAllRules();
+            runRules(kpi, "kpi-compute");
             return factType.get(kpi, "group") + " " + factType.get(kpi, "name") + " " + factType.get(kpi, "value");
         } catch (Exception e) {
             e.printStackTrace();
@@ -69,19 +70,18 @@ public class DroolsRulesApplier {
         return value;
     }
 
-     private static Object makeApplicant(FactType factType, String input) throws Exception{
-                Object kpi = factType.newInstance();
-                    String[] components = input.split(" ");
-                    factType.set(kpi, "group", components[0]);
-                    factType.set(kpi, "name", components[1]);
-                    factType.set(kpi, "value", Double.valueOf(components[2]));
-                    factType.set(kpi, "skipped", false);
-                return kpi;
-        }
-        protected static FactType factType(KieBase base) {
-                FactType factType = base.getFactType("com.maglev.ruleengine.drools_dynamic_test", "KPI");
-                return factType;
-        }
-
+    private static Object makeApplicant(FactType factType, String input) throws Exception{
+        Object kpi = factType.newInstance();
+        String[] components = input.split(" ");
+        factType.set(kpi, "group", components[0]);
+        factType.set(kpi, "name", components[1]);
+        factType.set(kpi, "value", Double.valueOf(components[2]));
+        factType.set(kpi, "skipped", false);
+        return kpi;
+    }
+    protected static FactType factType(KieBase base) {
+        FactType factType = base.getFactType("com.maglev.ruleengine.drools_dynamic_test", "KPI");
+        return factType;
+    }
 }
 

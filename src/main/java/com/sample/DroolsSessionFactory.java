@@ -8,35 +8,32 @@ import org.kie.api.runtime.StatelessKieSession;
 import org.kie.api.builder.ReleaseId;
 import org.kie.api.runtime.KieSession;
 import org.drools.compiler.kie.builder.impl.KieServicesImpl;
+
 public class DroolsSessionFactory {
-	
-	private static KieSession session;
-	private static KieContainer container;
-        private static String groupId = "com.maglev.ruleengine";
-        private static String artifactId = "Drools-dynamic-test";
-        private static String version = "LATEST";
+    private static KieSession session;
+    private static KieContainer container;
+    private static String groupId = "com.maglev.ruleengine";
+    private static String artifactId = "Drools-dynamic-test";
+    private static String version = "LATEST";
 
-	private static KieServices ks = KieServices.Factory.get();
+    private static KieServices ks = KieServices.Factory.get();
 	
-	protected static KieContainer createKieContainer() throws Exception{
-		if(container == null) {
-                        ReleaseId releaseId = ks.newReleaseId(groupId, artifactId, version);              
-			container = ks.newKieContainer(releaseId);
-		}
-		return container;
-	}
+    protected static KieContainer createKieContainer() throws Exception{
+        if(container == null) {
+            ReleaseId releaseId = ks.newReleaseId(groupId, artifactId, version);              
+            container = ks.newKieContainer(releaseId);
+        }
+        return container;
+    }
 
-	protected static KieSession createDroolsSession() throws Exception{
+    protected static KieSession createDroolsSession() throws Exception{
         container = createKieContainer();
         KieScanner kscanner = ks.newKieScanner(container);
 
         kscanner.start(5000);
 
-
         KieSession ksession = container.newKieSession();
-		return ksession;
-	}
-	
-
+        return ksession;
+    }	
 }
 
