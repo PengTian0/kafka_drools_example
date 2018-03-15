@@ -12,8 +12,8 @@ import org.drools.compiler.kie.builder.impl.KieServicesImpl;
 public class DroolsSessionFactory {
     private static KieSession session;
     private static KieContainer container;
-    private static String groupId = "com.maglev.ruleengine";
-    private static String artifactId = "Drools-dynamic-test";
+    private static String groupId = "uk.co.hadoopathome.kafka";
+    private static String artifactId = "kafka-streams-drools";
     private static String version = "LATEST";
 
     private static KieServices ks = KieServices.Factory.get();

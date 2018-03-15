@@ -49,6 +49,31 @@ public class KafkaStreamsRunner {
         return streams;
     }
 
+    public static KafkaStreams runNotificationKafkaStream(PropertiesConfiguration properties) throws Exception {
+        //String droolsRuleName = properties.getString("droolsRuleName");
+        DroolsRulesApplier rulesApplier = new DroolsRulesApplier();
+        KStreamBuilder builder = new KStreamBuilder();
+        String inputTopic = properties.getString("eventInputTopic");
+        String outputTopic = properties.getString("notificationOutputTopic");
+
+        KStream<byte[], String> inputData = builder.stream(inputTopic);
+
+        KStream<byte[], String> outputData = inputData.mapValues(rulesApplier::applyNotificationRule);
+
+        outputData.filter((key, value) -> value != null)
+                  .to(outputTopic);
+
+        Properties streamsConfig = createStreamConfig(properties);
+        KafkaStreams streams = new KafkaStreams(builder, streamsConfig);
+        System.out.println("start kafka streams");
+        streams.start();
+
+        Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
+
+        return streams;
+    }
+
+
     /**
      * Creates the Kafka Streams configuration.
      *
