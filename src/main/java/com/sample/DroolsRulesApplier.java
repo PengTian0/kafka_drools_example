@@ -95,12 +95,9 @@ public class DroolsRulesApplier {
             System.out.println("start to run rules");
             runRules(objs, "notification");
             System.out.println("end to run rules");
-            String message = (String)msgFactType.get(msg, "str");
+            String message = getMsg();
             System.out.println("=====================");
             System.out.println(message);
-            if(message == "" || message == null) {
-                return null;
-            }
             return message;
         } catch (Exception e) {
             e.printStackTrace();
@@ -108,7 +105,23 @@ public class DroolsRulesApplier {
         return null;
     }
 
+    public String getMsg() {
+        try{
 
+            FactType msgFactType = msgFactType(CONTAINER.getKieBase());
+            //boolean ready = (boolean)msgFactType.get(msg, "ready");
+            String message = (String)msgFactType.get(msg, "str");
+            if(message != null && message.length() > 0 ) {
+                msgFactType.set(msg, "str", null);
+                KIE_SESSION.insert(msg);
+                return message;
+            }
+        } catch  (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+
+    }
     
     private static Object makeApplicant(FactType factType, String input) throws Exception{
         Object kpi = factType.newInstance();

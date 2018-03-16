@@ -8,6 +8,10 @@ import org.apache.kafka.streams.StreamsConfig;
 import org.apache.kafka.streams.kstream.KStream;
 import org.apache.kafka.streams.kstream.KStreamBuilder;
 
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+
 import java.util.Properties;
 
 /**
@@ -49,7 +53,26 @@ public class KafkaStreamsRunner {
         return streams;
     }
 
-    public static KafkaStreams runNotificationKafkaStream(PropertiesConfiguration properties) throws Exception {
+
+    public static KafkaProducer<String, String> createProducer(PropertiesConfiguration properties) {
+        Properties props = new Properties();
+        props.put("bootstrap.servers", properties.getString("bootstrapServers"));
+        props.put("acks", "all");   
+        props.put("retries", 0);
+        props.put("batch.size", 16384);
+        props.put("linger.ms", 1);
+        props.put("buffer.memory", 33554432);
+        props.put("key.serializer", 
+         "org.apache.kafka.common.serialization.StringSerializer");
+         
+        props.put("value.serializer", 
+         "org.apache.kafka.common.serialization.StringSerializer");
+      
+        KafkaProducer<String, String> producer = new KafkaProducer<String, String>(props);
+        return producer;
+    }
+
+    public static void runNotificationKafkaStream(PropertiesConfiguration properties) throws Exception {
         //String droolsRuleName = properties.getString("droolsRuleName");
         DroolsRulesApplier rulesApplier = new DroolsRulesApplier();
         KStreamBuilder builder = new KStreamBuilder();
@@ -57,20 +80,34 @@ public class KafkaStreamsRunner {
         String outputTopic = properties.getString("notificationOutputTopic");
 
         KStream<byte[], String> inputData = builder.stream(inputTopic);
+        //KStream<byte[], String> outputData = builder.stream(outputTopic);
+        KafkaProducer<String, String> producer = createProducer(properties);
 
-        KStream<byte[], String> outputData = inputData.mapValues(rulesApplier::applyNotificationRule);
+        inputData.mapValues(rulesApplier::applyNotificationRule);
+        //KStream<byte[], String> outputData = inputData.mapValues(rulesApplier::applyNotificationRule);
+      
+        //outputData.filter((key, value) -> value != null)
+        //          .to(outputTopic);
 
-        outputData.filter((key, value) -> value != null)
-                  .to(outputTopic);
+
 
         Properties streamsConfig = createStreamConfig(properties);
         KafkaStreams streams = new KafkaStreams(builder, streamsConfig);
         System.out.println("start kafka streams");
         streams.start();
-
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
+        Runtime.getRuntime().addShutdownHook(new Thread(producer::close));
+        while(true){
+            String message = rulesApplier.getMsg();
+            System.out.println("=============message start=============");
+            System.out.println(message);
+            System.out.println("=============message end=============");
+            if(message != null){
+                producer.send(new ProducerRecord<String, String>(outputTopic, message, message));
+            }
+        }
 
-        return streams;
+
     }
 
 
