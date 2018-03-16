@@ -5,6 +5,8 @@
 1. java
 2. maven
 
+## current version 45
+
 ## Config maven
    ```
    sudo vi /etc/maven/settings.xml

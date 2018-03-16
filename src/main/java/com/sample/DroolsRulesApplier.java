@@ -2,6 +2,7 @@ package com.sample;
 
 import java.util.*;
 import org.kie.api.definition.type.FactType;
+import org.kie.api.runtime.rule.FactHandle;
 import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.StatelessKieSession;
 import org.kie.api.KieServices;
@@ -35,13 +36,27 @@ public class DroolsRulesApplier {
     }
 
     public void runRules(ArrayList<Object> objs, String group){
-        KIE_SESSION.getAgenda().getAgendaGroup(group).setFocus();
         for(Object obj: objs){
             KIE_SESSION.insert(obj);
         }
-        KIE_SESSION.fireAllRules();
+        runRules(group);
     }
 
+    public void runRules(String group){
+        System.out.println("start to run rules");
+        KIE_SESSION.getAgenda().getAgendaGroup(group).setFocus();
+        KIE_SESSION.fireAllRules();
+        System.out.println("end to run rules");
+
+        FactType msgFactType = msgFactType(CONTAINER.getKieBase());
+        String message = (String)msgFactType.get(msg, "str");
+        int times = (Integer)msgFactType.get(msg, "times");
+        String content = (String)msgFactType.get(msg, "content");
+        System.out.println("times:" + times);
+        System.out.println("content:" + content);
+        System.out.println("str:" + message);
+        
+    }
 
     /**
      * Applies the loaded Drools rules to a given String.
@@ -88,17 +103,12 @@ public class DroolsRulesApplier {
         try{
             System.out.println("start to apply notification rule with fact: " + value);
             FactType factType = factType(CONTAINER.getKieBase());
-            FactType msgFactType = msgFactType(CONTAINER.getKieBase());
             Object event = makeApplicant(factType, value);
             ArrayList<Object> objs = new ArrayList<Object>();
             objs.add(event);
-            System.out.println("start to run rules");
             runRules(objs, "notification");
-            System.out.println("end to run rules");
-            String message = getMsg();
-            System.out.println("=====================");
-            System.out.println(message);
-            return message;
+            //FactHandle eventFactHandle = KIE_SESSION.getFactHandle(event);
+            //KIE_SESSION.delete(eventFactHandle);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -111,11 +121,15 @@ public class DroolsRulesApplier {
             FactType msgFactType = msgFactType(CONTAINER.getKieBase());
             //boolean ready = (boolean)msgFactType.get(msg, "ready");
             String message = (String)msgFactType.get(msg, "str");
-            if(message != null && message.length() > 0 ) {
-                msgFactType.set(msg, "str", null);
-                KIE_SESSION.insert(msg);
-                return message;
+            String content = (String)msgFactType.get(msg, "content");
+            if(message != null && (message.length() > 0) && (content != null) && (content.length()>0)) {
+                FactHandle msgFactHandle = KIE_SESSION.getFactHandle(msg);
+                msgFactType.set(msg, "str", "");
+                msgFactType.set(msg, "content", "");
+                KIE_SESSION.update(msgFactHandle, msg);
             }
+            runRules("notification");
+            return message;
         } catch  (Exception e) {
             e.printStackTrace();
         }
@@ -140,6 +154,7 @@ public class DroolsRulesApplier {
     private static Object makeMsgApplicant(FactType factType) throws Exception{
         Object msg = factType.newInstance();
         factType.set(msg, "content", "");
+        factType.set(msg, "str", "");
         return msg;
     }
 

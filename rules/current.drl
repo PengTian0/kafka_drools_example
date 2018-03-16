@@ -1,0 +1,92 @@
+package uk.co.hadoopathome.kafka.kafka_streams_drools;
+
+import java.util.*
+
+declare EVENT
+   group: String
+   name: String
+   value: Double
+   skipped: Boolean
+   message: String
+end
+
+declare MSG
+   content: String
+   receiver: String
+   operation: String
+   times: Integer
+   str: String
+end
+
+
+rule "If power is off and message exist, update message"
+agenda-group "notification"
+no-loop
+lock-on-active
+when
+    event:EVENT(name == "power" && (value == 0));
+    m:MSG(content == "power is off" && (receiver == "Norton"))
+then
+    m.setTimes(m.getTimes() + 1);
+    update(m);
+    retract(event);
+end
+
+rule "If power is off, notify norton"
+agenda-group "notification"
+lock-on-active
+no-loop
+when
+    event:EVENT (name == "power" && (value == 0));
+    m: MSG(content == "" && (str == ""));
+then
+    m.setContent("power is off");
+    m.setReceiver("Norton");
+    m.setOperation("sendEmail");
+    m.setTimes(1);
+    m.setStr("");
+    update(m);
+    retract(event);
+    
+end
+
+rule "If there are more than 5 message, ready to send"
+agenda-group "notification"
+no-loop
+when
+    m: MSG(times >=5)
+then
+    m.setStr("content: " + m.getContent() + "\n receiver: " + m.getReceiver() + "\n opeation: " + m.getOperation());
+    m.setTimes(0);
+    update(m);
+end
+
+
+rule "If delay is enough, ready to send"
+agenda-group "notification"
+timer (cron:0/15 * * * * ?)
+when
+    m: MSG(content != "")
+then
+    m.setStr("content: " + m.getContent() + "\n receiver: " + m.getReceiver() + "\n opeation: " + m.getOperation());
+    m.setTimes(0);
+    update(m);
+end
+
+/*
+rule "If message is ready, convert to string"
+agenda-group "notification"
+when
+    m: MSG(ready == true)
+then
+    m.setStr("content: " + m.getContent() + "\n receiver: " + m.getReceiver() + "\n opeation: " + m.getOperation());
+    m.setContent("");
+    m.setReady(false);
+    m.setTimes(1);
+    update(m);
+end
+*/
+
+
+
+

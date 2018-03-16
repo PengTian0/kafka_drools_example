@@ -13,6 +13,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Runs the Kafka Streams job.
@@ -99,12 +100,14 @@ public class KafkaStreamsRunner {
         Runtime.getRuntime().addShutdownHook(new Thread(producer::close));
         while(true){
             String message = rulesApplier.getMsg();
-            System.out.println("=============message start=============");
-            System.out.println(message);
-            System.out.println("=============message end=============");
-            if(message != null){
+            if(message != null && message.length() > 0){
+                System.out.println("=============message start=============");
+                System.out.println(message);
+                System.out.println("=============message end=============");
                 producer.send(new ProducerRecord<String, String>(outputTopic, message, message));
-            }
+            } 
+            
+            TimeUnit.SECONDS.sleep(1);
         }
 
 
