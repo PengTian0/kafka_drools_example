@@ -1,6 +1,7 @@
 package com.sample;
 
 import java.util.*;
+import org.apache.commons.configuration2.PropertiesConfiguration;
 import org.kie.api.definition.type.FactType;
 import org.kie.api.runtime.KieContainer;
 import org.kie.api.runtime.StatelessKieSession;
@@ -18,21 +19,26 @@ public class DroolsRulesApplier {
 	
     private static KieSession KIE_SESSION;
     private static KieContainer CONTAINER;
-    private Object msg;
-    private FactHandle msgHandle;
-    private FactType msgFactType;
+    private static DataObjectFactory factory;
+    private FactType eventFactType;
+    private Object notifications;
+    private FactHandle notificationsHandle;
+    private FactType notificationsFactType;
 
-    public DroolsRulesApplier() throws Exception {
-        KIE_SESSION = DroolsSessionFactory.createDroolsSession();
-        CONTAINER =  DroolsSessionFactory.createKieContainer();
-        msgFactType = msgFactType(CONTAINER.getKieBase());
-        msg = makeMsgApplicant(msgFactType);
-        msgHandle = KIE_SESSION.insert(msg);
+    public DroolsRulesApplier(PropertiesConfiguration properties) throws Exception {
+        CONTAINER =  DroolsSessionFactory.createKieContainer(properties);
+        KIE_SESSION = DroolsSessionFactory.createDroolsSession(CONTAINER);
+
+        factory = DataObjectFactory.getInstance(properties);
+        eventFactType = factory.eventFactType(CONTAINER.getKieBase());
+        notificationsFactType = factory.notificationsFactType(CONTAINER.getKieBase());
+        notifications = factory.makeNotificationsApplicant(notificationsFactType);
+        notificationsHandle = KIE_SESSION.insert(notifications);
     }
 
-    public void runRules(Object kpi, String group){
+    public void runRules(Object obj, String group){
         KIE_SESSION.getAgenda().getAgendaGroup(group).setFocus();
-        KIE_SESSION.insert(kpi);
+        KIE_SESSION.insert(obj);
         KIE_SESSION.fireAllRules();
     }
 
@@ -49,104 +55,41 @@ public class DroolsRulesApplier {
         KIE_SESSION.fireAllRules();
     }
 
-    public void resetMsg() {
-        KIE_SESSION.retract(msgHandle);
-        msgFactType.set(msg, "content", "");
-        msgFactType.set(msg, "str", "");
-        msgHandle = KIE_SESSION.insert(msg);
-    }
-
-    /**
-     * Applies the loaded Drools rules to a given String.
-     *
-     * @param value the String to which the rules should be applied
-     * @return the String after the rule has been applied
-     * @throws Exception 
-     */
-    public String applyKpiFilterRule(String value) {
-    	System.out.println("start to apply rule with fact: " + value);
-        try{
-            FactType factType = factType(CONTAINER.getKieBase());
-            Object kpi = makeApplicant(factType, value);
-            runRules(kpi, "kpi-filter");
-            boolean skipped = (Boolean)factType.get(kpi, "skipped");
-            
-            System.out.println("skipped："+ skipped);
-            if(skipped){
-                return null;
-            }else{
-                return factType.get(kpi, "group") + " " + factType.get(kpi, "name") + " " + factType.get(kpi, "value"); 
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return value;
-    }
-
-    public String applyKpiComputeRule(String value) {
-        try{
-            System.out.println("start to apply compute rule with fact: " + value);
-            FactType factType = factType(CONTAINER.getKieBase());
-            Object kpi = makeApplicant(factType, value);
-            runRules(kpi, "kpi-compute");
-            return factType.get(kpi, "group") + " " + factType.get(kpi, "name") + " " + factType.get(kpi, "value");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return value;
+    public void resetNotifications() {
+        KIE_SESSION.retract(notificationsHandle);
+        notificationsFactType.set(notifications, "messages", new ArrayList<String>());
+        notificationsHandle = KIE_SESSION.insert(notifications);
     }
 
     public String applyNotificationRule(String value) {
         try{
             System.out.println("start to apply notification rule with fact: " + value);
-            FactType factType = factType(CONTAINER.getKieBase());
-            //FactType msgFactType = msgFactType(CONTAINER.getKieBase());
-            Object event = makeApplicant(factType, value);
-            ArrayList<Object> objs = new ArrayList<Object>();
-            objs.add(event);
+            Object event = factory.makeEventApplicant(eventFactType, value);
             System.out.println("start to run rules");
-            runRules(objs, "notification");
+            runRules(event, "notification");
             System.out.println("end to run rules");
-            String message = getMsg();
-
-            String content = (String)msgFactType.get(msg, "content");
-            System.out.println(content);
-            int times = (Integer)msgFactType.get(msg, "times");
-            System.out.println(times);
-            String str = (String)msgFactType.get(msg, "str");
-            System.out.println(str);
-            
-            return message;
+            /*ArrayList<String> messages = getNotificationRequest();
+            if(messages.isEmpty()) {
+                return null;
+            }
+            return messages.get(messages.size()-1);*/
         } catch (Exception e) {
             e.printStackTrace();
         }
         return null;
     }
 
-    public String getMsg() {
+    public ArrayList<String> getNotificationRequest() {
         try{
-
-            //FactType msgFactType = msgFactType(CONTAINER.getKieBase());
-
-            String message = (String)msgFactType.get(msg, "str");
-            if(message != null && message.length() > 0 ) {
-                System.out.println("start to send message to kafka");
-                System.out.println(message);
-                KIE_SESSION.retract(msgHandle);
-                msgFactType.set(msg, "content", "");
-                msgFactType.set(msg, "str", "");
-                msgHandle = KIE_SESSION.insert(msg);
-                return message;
-            }
+            ArrayList<String> messages = (ArrayList<String>)notificationsFactType.get(notifications, "messages");
+            return messages;
         } catch  (Exception e) {
             e.printStackTrace();
         }
         return null;
-
     }
-    
-    private static Object makeApplicant(FactType factType, String input) throws Exception{
+    /*
+    private static Object makeEventApplicant(FactType factType, String input) throws Exception{
         Object kpi = factType.newInstance();
         String[] components = input.split(" ");
         factType.set(kpi, "group", components[0]);
@@ -155,23 +98,23 @@ public class DroolsRulesApplier {
         factType.set(kpi, "skipped", false);
         return kpi;
     }
-    protected static FactType factType(KieBase base) {
-        FactType factType = base.getFactType("com.dell.mars.pacs", "EVENT");
+    protected static FactType eventFactType(KieBase base) {
+        FactType factType = base.getFactType("com.dell.mars.pacs.notify", "EVENT");
         return factType;
     }
 
-    private static Object makeMsgApplicant(FactType factType) throws Exception{
-        System.out.println("start to make msg applicant");
+    private static Object makeNotificationsApplicant(FactType factType) throws Exception{
+        System.out.println("start to make notifications applicant");
         System.out.println(factType);
-        Object msg = factType.newInstance();
-        factType.set(msg, "content", "");
-        return msg;
+        Object notifications = factType.newInstance();
+        factType.set(notifications, "messages", new ArrayList<String>());
+        return notifications;
     }
 
-    protected static FactType msgFactType(KieBase base) {
-        FactType factType = base.getFactType("com.dell.mars.pacs", "MSG");
+    protected static FactType notificationsFactType(KieBase base) {
+        FactType factType = base.getFactType("com.dell.mars.pacs.notify", "NOTIFICATIONS");
         return factType;
-    }
+    }*/
 
 }
 

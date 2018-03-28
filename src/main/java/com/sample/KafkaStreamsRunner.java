@@ -13,7 +13,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.util.Properties;
-
+import java.util.ArrayList;
 /**
  * Runs the Kafka Streams job.
  */
@@ -21,38 +21,6 @@ public class KafkaStreamsRunner {
 
     private KafkaStreamsRunner() {
     }
-
-    /**
-     * Runs the Kafka Streams job.
-     *
-     * @param properties the configuration for the job
-     * @return the Kafka Streams instance
-     */
-    public static KafkaStreams runKafkaStream(PropertiesConfiguration properties) throws Exception {
-        //String droolsRuleName = properties.getString("droolsRuleName");
-        DroolsRulesApplier rulesApplier = new DroolsRulesApplier();
-        KStreamBuilder builder = new KStreamBuilder();
-        String inputTopic = properties.getString("kpiFilterInputTopic");
-        String outputTopic = properties.getString("kpiFilterOutputTopic");
-
-        KStream<byte[], String> inputData = builder.stream(inputTopic);
-
-        KStream<byte[], String> outputData = inputData.mapValues(rulesApplier::applyKpiFilterRule);
-
-        outputData.filter((key, value) -> value != null)
-                  .mapValues(rulesApplier::applyKpiComputeRule)
-                  .to(outputTopic);
-
-        Properties streamsConfig = createStreamConfig(properties);
-        KafkaStreams streams = new KafkaStreams(builder, streamsConfig);
-        System.out.println("start kafka streams");
-        streams.start();
-
-        Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
-
-        return streams;
-    }
-
 
     public static KafkaProducer<String, String> createProducer(PropertiesConfiguration properties) {
         Properties props = new Properties();
@@ -73,45 +41,33 @@ public class KafkaStreamsRunner {
     }
 
     public static void runNotificationKafkaStream(PropertiesConfiguration properties) throws Exception {
-        //String droolsRuleName = properties.getString("droolsRuleName");
-        DroolsRulesApplier rulesApplier = new DroolsRulesApplier();
+        DroolsRulesApplier rulesApplier = new DroolsRulesApplier(properties);
         KStreamBuilder builder = new KStreamBuilder();
         String inputTopic = properties.getString("eventInputTopic");
         String outputTopic = properties.getString("notificationOutputTopic");
 
         KStream<byte[], String> inputData = builder.stream(inputTopic);
-        //KStream<byte[], String> outputData = builder.stream(outputTopic);
         KafkaProducer<String, String> producer = createProducer(properties);
 
         inputData.mapValues(rulesApplier::applyNotificationRule);
-        //KStream<byte[], String> outputData = inputData.mapValues(rulesApplier::applyNotificationRule);
-      
-        //outputData.filter((key, value) -> value != null)
-        //          .to(outputTopic);
-
-
 
         Properties streamsConfig = createStreamConfig(properties);
         KafkaStreams streams = new KafkaStreams(builder, streamsConfig);
-        System.out.println("start kafka streams");
         streams.start();
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
         Runtime.getRuntime().addShutdownHook(new Thread(producer::close));
         
         while(true){
-            String message = rulesApplier.getMsg();
-            System.out.println("=============message start=============");
-            if(message != null){
-                System.out.println("=============message start=============");
-                System.out.println(message);
-                System.out.println("=============message end=============");
-                producer.send(new ProducerRecord<String, String>(outputTopic, message, message));
+            ArrayList<String> messages = rulesApplier.getNotificationRequest();
+            if(messages != null && messages.size() > 0){
+                for(String message: messages) {
+                    producer.send(new ProducerRecord<String, String>(outputTopic, message, message));
+                }
+                rulesApplier.resetNotifications();
             }
             java.util.concurrent.TimeUnit.SECONDS.sleep(1);
             rulesApplier.runRules("notification");
         }
-
-
     }
 
 

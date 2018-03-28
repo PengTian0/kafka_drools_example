@@ -1,5 +1,6 @@
 package com.sample;
 
+import org.apache.commons.configuration2.PropertiesConfiguration;
 import org.drools.compiler.kproject.ReleaseIdImpl;
 import org.kie.api.KieServices;
 import org.kie.api.builder.KieScanner;
@@ -12,26 +13,23 @@ import org.drools.compiler.kie.builder.impl.KieServicesImpl;
 public class DroolsSessionFactory {
     private static KieSession session;
     private static KieContainer container;
-    private static String groupId = "com.dell.mars.pacs";
-    private static String artifactId = "notify";
-    private static String version = "LATEST";
-
     private static KieServices ks = KieServices.Factory.get();
 	
-    protected static KieContainer createKieContainer() throws Exception{
+    protected static KieContainer createKieContainer(PropertiesConfiguration properties) throws Exception{
         if(container == null) {
-            ReleaseId releaseId = ks.newReleaseId(groupId, artifactId, version);              
+            String groupId = properties.getString("group");
+            String artifactId = properties.getString("artifact");
+            String version = properties.getString("rulesVersion");
+            ReleaseId releaseId = ks.newReleaseId(groupId, artifactId, version);
             container = ks.newKieContainer(releaseId);
         }
         return container;
     }
 
-    protected static KieSession createDroolsSession() throws Exception{
-        container = createKieContainer();
+    protected static KieSession createDroolsSession(KieContainer container) throws Exception{
+        //container = createKieContainer();
         KieScanner kscanner = ks.newKieScanner(container);
-
         kscanner.start(5000);
-
         KieSession ksession = container.newKieSession();
         return ksession;
     }	
