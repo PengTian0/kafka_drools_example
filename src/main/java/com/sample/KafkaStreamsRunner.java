@@ -97,14 +97,18 @@ public class KafkaStreamsRunner {
         streams.start();
         Runtime.getRuntime().addShutdownHook(new Thread(streams::close));
         Runtime.getRuntime().addShutdownHook(new Thread(producer::close));
+        
         while(true){
             String message = rulesApplier.getMsg();
             System.out.println("=============message start=============");
-            System.out.println(message);
-            System.out.println("=============message end=============");
             if(message != null){
+                System.out.println("=============message start=============");
+                System.out.println(message);
+                System.out.println("=============message end=============");
                 producer.send(new ProducerRecord<String, String>(outputTopic, message, message));
             }
+            java.util.concurrent.TimeUnit.SECONDS.sleep(1);
+            rulesApplier.runRules("notification");
         }
 
 

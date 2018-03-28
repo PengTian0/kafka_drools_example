@@ -12,20 +12,22 @@ import org.kie.api.runtime.KieSession;
 
 import org.kie.api.definition.type.FactType;
 import org.kie.api.KieBase;
-
+import org.kie.api.runtime.rule.FactHandle;
 
 public class DroolsRulesApplier {
 	
     private static KieSession KIE_SESSION;
     private static KieContainer CONTAINER;
     private Object msg;
+    private FactHandle msgHandle;
+    private FactType msgFactType;
 
     public DroolsRulesApplier() throws Exception {
         KIE_SESSION = DroolsSessionFactory.createDroolsSession();
         CONTAINER =  DroolsSessionFactory.createKieContainer();
-        FactType msgFactType = msgFactType(CONTAINER.getKieBase());
+        msgFactType = msgFactType(CONTAINER.getKieBase());
         msg = makeMsgApplicant(msgFactType);
-        KIE_SESSION.insert(msg);
+        msgHandle = KIE_SESSION.insert(msg);
     }
 
     public void runRules(Object kpi, String group){
@@ -42,6 +44,17 @@ public class DroolsRulesApplier {
         KIE_SESSION.fireAllRules();
     }
 
+    public void runRules(String group){
+        KIE_SESSION.getAgenda().getAgendaGroup(group).setFocus();
+        KIE_SESSION.fireAllRules();
+    }
+
+    public void resetMsg() {
+        KIE_SESSION.retract(msgHandle);
+        msgFactType.set(msg, "content", "");
+        msgFactType.set(msg, "str", "");
+        msgHandle = KIE_SESSION.insert(msg);
+    }
 
     /**
      * Applies the loaded Drools rules to a given String.
@@ -88,7 +101,7 @@ public class DroolsRulesApplier {
         try{
             System.out.println("start to apply notification rule with fact: " + value);
             FactType factType = factType(CONTAINER.getKieBase());
-            FactType msgFactType = msgFactType(CONTAINER.getKieBase());
+            //FactType msgFactType = msgFactType(CONTAINER.getKieBase());
             Object event = makeApplicant(factType, value);
             ArrayList<Object> objs = new ArrayList<Object>();
             objs.add(event);
@@ -96,8 +109,14 @@ public class DroolsRulesApplier {
             runRules(objs, "notification");
             System.out.println("end to run rules");
             String message = getMsg();
-            System.out.println("=====================");
-            System.out.println(message);
+
+            String content = (String)msgFactType.get(msg, "content");
+            System.out.println(content);
+            int times = (Integer)msgFactType.get(msg, "times");
+            System.out.println(times);
+            String str = (String)msgFactType.get(msg, "str");
+            System.out.println(str);
+            
             return message;
         } catch (Exception e) {
             e.printStackTrace();
@@ -108,12 +127,16 @@ public class DroolsRulesApplier {
     public String getMsg() {
         try{
 
-            FactType msgFactType = msgFactType(CONTAINER.getKieBase());
-            //boolean ready = (boolean)msgFactType.get(msg, "ready");
+            //FactType msgFactType = msgFactType(CONTAINER.getKieBase());
+
             String message = (String)msgFactType.get(msg, "str");
             if(message != null && message.length() > 0 ) {
-                msgFactType.set(msg, "str", null);
-                KIE_SESSION.insert(msg);
+                System.out.println("start to send message to kafka");
+                System.out.println(message);
+                KIE_SESSION.retract(msgHandle);
+                msgFactType.set(msg, "content", "");
+                msgFactType.set(msg, "str", "");
+                msgHandle = KIE_SESSION.insert(msg);
                 return message;
             }
         } catch  (Exception e) {
@@ -133,18 +156,20 @@ public class DroolsRulesApplier {
         return kpi;
     }
     protected static FactType factType(KieBase base) {
-        FactType factType = base.getFactType("uk.co.hadoopathome.kafka.kafka_streams_drools", "EVENT");
+        FactType factType = base.getFactType("com.dell.mars.pacs", "EVENT");
         return factType;
     }
 
     private static Object makeMsgApplicant(FactType factType) throws Exception{
+        System.out.println("start to make msg applicant");
+        System.out.println(factType);
         Object msg = factType.newInstance();
         factType.set(msg, "content", "");
         return msg;
     }
 
     protected static FactType msgFactType(KieBase base) {
-        FactType factType = base.getFactType("uk.co.hadoopathome.kafka.kafka_streams_drools", "MSG");
+        FactType factType = base.getFactType("com.dell.mars.pacs", "MSG");
         return factType;
     }
 
