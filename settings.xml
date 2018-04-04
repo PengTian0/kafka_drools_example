@@ -1,0 +1,33 @@
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0
+                      https://maven.apache.org/xsd/settings-1.0.0.xsd">
+  <servers>
+    <server>
+      <id>nexus</id>
+      <username>admin</username>
+      <password>admin123</password>
+    </server>
+  </servers>
+
+  <profiles>
+    <profile>
+       <activation>
+          <activeByDefault>true</activeByDefault>
+       </activation>
+       <repositories>
+          <repository>
+            <id>nexus</id>
+            <name>nexus</name>
+            <url>http://10.62.59.177:8081/repository/maven-snapshots/</url>
+            <layout>default</layout>
+            <releases>
+               <enabled>true</enabled>
+               <updatePolicy>always</updatePolicy>
+            </releases>
+
+          </repository>
+       </repositories>
+    </profile>
+  </profiles>
+</settings>

@@ -29,7 +29,7 @@ public class DroolsSessionFactory {
     protected static KieSession createDroolsSession(KieContainer container) throws Exception{
         //container = createKieContainer();
         KieScanner kscanner = ks.newKieScanner(container);
-        kscanner.start(5000);
+        kscanner.start(1000);
         KieSession ksession = container.newKieSession();
         return ksession;
     }	
